@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Jump Runner</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#75cfff;font-family:Arial,sans-serif;touch-action:none}
+canvas{display:block;width:100%;height:100%}
+#start{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#000}
+#start img{position:absolute;width:100%;height:100%;object-fit:cover}
+#start button{position:relative;z-index:2;border:0;border-radius:22px;padding:18px 52px;font-size:28px;font-weight:900;letter-spacing:1px;color:white;background:linear-gradient(#39d353,#168b32);box-shadow:0 8px 0 #0b5e20,0 12px 30px #0008}
+#gameover{position:fixed;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;background:#0007;color:white}
+#gameover h1{font-size:44px;margin:0 0 10px;text-shadow:3px 3px #000}
+#gameover p{font-size:24px;margin:4px}
+#gameover button{margin-top:20px;padding:14px 34px;border:0;border-radius:16px;font-size:22px;font-weight:bold}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="start">
+  <img src="icon.png" alt="">
+  <button id="startBtn">INIZIA</button>
+</div>
+<div id="gameover">
+  <h1>GAME OVER</h1><p id="finalScore"></p><p id="finalCoins"></p>
+  <button id="restartBtn">RIGIOCA</button>
+</div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+let W,H,dpr,ground,player,obstacles,coins,score,coinCount,speed,started=false,gameOver=false,last=0,spawn=0,coinSpawn=0;
+function resize(){dpr=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;c.width=W*dpr;c.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);ground=H*0.78}
+addEventListener('resize',resize);resize();
+
+function reset(){
+ player={x:W*.18,y:ground-72,w:46,h:72,vy:0,jumps:0};
+ obstacles=[];coins=[];score=0;coinCount=0;speed=360;spawn=0;coinSpawn=0;gameOver=false;
+ document.getElementById('gameover').style.display='none';
+}
+function jump(){
+ if(!started||gameOver)return;
+ if(player.jumps<2){player.vy=-720;player.jumps++}
+}
+function start(){document.getElementById('start').style.display='none';started=true;reset();requestAnimationFrame(loop)}
+document.getElementById('startBtn').onclick=start;
+document.getElementById('restartBtn').onclick=()=>{reset();requestAnimationFrame(loop)};
+addEventListener('pointerdown',e=>{if(e.target.tagName!=='BUTTON')jump()});
+addEventListener('keydown',e=>{if(e.code==='Space'||e.code==='ArrowUp')jump()});
+
+function rectHit(a,b){return a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y}
+function spawnObstacle(){let h=35+Math.random()*45;obstacles.push({x:W+30,y:ground-h,w:32+Math.random()*25,h})}
+function spawnCoin(){coins.push({x:W+30,y:ground-80-Math.random()*150,r:12,t:Math.random()*6.28})}
+
+function drawBackground(t){
+ let g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#4ebfff');g.addColorStop(1,'#dff7ff');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+ ctx.fillStyle='#fff8'; for(let i=0;i<5;i++){let x=((i*260-t*.03)%(W+260))-100;ctx.beginPath();ctx.arc(x,100+i%2*70,28,0,7);ctx.arc(x+35,100+i%2*70,38,0,7);ctx.arc(x+75,105+i%2*70,26,0,7);ctx.fill()}
+ ctx.fillStyle='#78b66b';ctx.beginPath();ctx.moveTo(0,ground);for(let x=0;x<=W;x+=80)ctx.lineTo(x,ground-70-Math.sin(x*.01+t*.0003)*25);ctx.lineTo(W,ground);ctx.fill();
+ ctx.fillStyle='#4b9d55';ctx.fillRect(0,ground,W,H-ground);
+ ctx.fillStyle='#6ccf48';ctx.fillRect(0,ground,W,10);
+}
+function drawPlayer(){
+ ctx.save();ctx.translate(player.x,player.y);
+ // cape/body
+ ctx.fillStyle='#e52b35';ctx.fillRect(10,22,28,34);
+ ctx.fillStyle='#fff';ctx.fillRect(15,25,18,20);
+ ctx.fillStyle='#f0b080';ctx.beginPath();ctx.arc(25,15,17,0,7);ctx.fill();
+ ctx.fillStyle='#4a281d';ctx.beginPath();ctx.arc(25,7,17,Math.PI,6.1);ctx.fill();
+ ctx.fillStyle='#18233a';ctx.fillRect(9,55,13,17);ctx.fillRect(27,55,13,17);
+ ctx.fillStyle='#e52b35';ctx.fillRect(6,69,20,6);ctx.fillRect(27,69,20,6);
+ ctx.restore();
+}
+function draw(){
+ drawBackground(performance.now());
+ // obstacles
+ obstacles.forEach(o=>{ctx.fillStyle='#69432b';ctx.fillRect(o.x,o.y,o.w,o.h);ctx.fillStyle='#3f9b43';ctx.fillRect(o.x-3,o.y-7,o.w+6,8)});
+ coins.forEach(q=>{ctx.save();ctx.translate(q.x,q.y);ctx.rotate(Math.sin(q.t)*.2);ctx.fillStyle='#ffbf19';ctx.beginPath();ctx.arc(0,0,q.r,0,7);ctx.fill();ctx.strokeStyle='#fff2a0';ctx.lineWidth=3;ctx.stroke();ctx.fillStyle='#a96a00';ctx.font='bold 13px Arial';ctx.textAlign='center';ctx.fillText('$',0,5);ctx.restore()});
+ drawPlayer();
+ ctx.fillStyle='#17304d';ctx.font='bold 22px Arial';ctx.fillText('🪙 '+coinCount,20,35);ctx.fillText('PUNTI '+Math.floor(score),20,64);
+}
+function endGame(){
+ gameOver=true;
+ document.getElementById('finalScore').textContent='Punti: '+Math.floor(score);
+ document.getElementById('finalCoins').textContent='Monete: '+coinCount;
+ document.getElementById('gameover').style.display='flex';
+ if(window.Android&&Android.showInterstitial)Android.showInterstitial();
+}
+function loop(t){
+ if(!started||gameOver)return;
+ let dt=Math.min((t-last)/1000,.033);last=t;
+ speed=Math.min(720,speed+dt*7);score+=dt*10;
+ player.vy+=1850*dt;player.y+=player.vy*dt;
+ if(player.y+player.h>=ground){player.y=ground-player.h;player.vy=0;player.jumps=0}
+ spawn-=dt;coinSpawn-=dt;
+ if(spawn<=0){spawnObstacle();spawn=Math.max(.72,1.45-speed/1000)+Math.random()*.55}
+ if(coinSpawn<=0){spawnCoin();coinSpawn=.55+Math.random()*.8}
+ obstacles.forEach(o=>o.x-=speed*dt);coins.forEach(q=>{q.x-=speed*dt;q.t+=dt*5});
+ obstacles=obstacles.filter(o=>o.x+o.w>-20);coins=coins.filter(q=>q.x+q.r>-20);
+ for(const o of obstacles)if(rectHit(player,o)){endGame();return}
+ coins=coins.filter(q=>{let hit=rectHit(player,{x:q.x-q.r,y:q.y-q.r,w:q.r*2,h:q.r*2});if(hit){coinCount++;score+=100;return false}return true});
+ draw();requestAnimationFrame(loop)
+}
+</script>
+</body>
+</html>
